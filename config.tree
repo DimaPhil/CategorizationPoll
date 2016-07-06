@@ -1,0 +1,28 @@
+Tree programming-languages
+programming-languages -> basics
+programming-languages -> conditions
+programming-languages -> type-conversions
+programming-languages -> built-in-algorithms&data-structures
+programming-languages -> loops
+programming-languages -> strings
+programming-languages -> arrays
+programming-languages -> recursion
+programming-languages -> regular-expressions
+arrays -> linear-arrays
+arrays -> multidimensional-arrays
+Tree algorithms&data-structures
+algorithms&data-structures -> sorting-algorithms
+algorithms&data-structures -> strings
+algorithms&data-structures -> suffix-data-structures
+algorithms&data-structures -> string-hashes
+algorithms&data-structures -> prefix/z-function
+sorting-algorithms -> merge-sort
+sorting-algorithms -> heap-sort
+sorting-algorithms -> quick-sort
+sorting-algorithms -> counting-sort
+sorting-algorithms -> bucket-sort
+sorting-algorithms -> quadratic-sorting
+algorithms&data-structures -> graphs
+graphs -> graph-traversal
+graphs -> shortest-paths
+graphs -> matching&flows
