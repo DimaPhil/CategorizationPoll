@@ -1,13 +1,10 @@
 package com.codefights.poll;
 
-import org.omg.CORBA.BAD_INV_ORDER;
-import sun.reflect.generics.tree.Tree;
+import org.markdown4j.Markdown4jProcessor;
 
+import java.util.List;
 import javax.swing.*;
-import javax.swing.border.Border;
 import java.awt.*;
-import java.awt.font.FontRenderContext;
-import java.awt.geom.AffineTransform;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
@@ -102,6 +99,7 @@ class Visualizer {
     }
 
     private class MainFrame extends JFrame {
+        private String currentTask;
         private JTextArea descriptionArea;
         private JScrollPane descriptionPane;
         private JPanel rightPane;
@@ -110,11 +108,14 @@ class Visualizer {
         private JSplitPane pane;
         private PollButton[] trees;
         private PollButton submitButton;
+        private PollButton backButton;
         private boolean submitClicked = false;
+        private boolean backClicked = false;
         private PKT[] pkts;
         private PKT currentPKT;
         private GroupLayout layout;
         private ArrayList<TreeVertex> vertices;
+        private String[] selected;
 
         MainFrame() throws ConfigException {
             setTitle("Classification poll");
@@ -158,18 +159,20 @@ class Visualizer {
             assert config != null;
             trees = new PollButton[config.roots.size()];
             pkts = new PKT[config.roots.size()];
-            int buttonWidth = pane.getRightComponent().getWidth() / (trees.length + 1);
+            int buttonWidth = pane.getRightComponent().getWidth() / (trees.length + 2);
             int buttonHeight = BUTTON_HEIGHT;
             for (int i = 0; i < config.roots.size(); i++) {
                 pkts[i] = new PKT(config, i);
                 trees[i] = new PollButton(pkts[i].getRoot(), buttonWidth, buttonHeight);
             }
             submitButton = new PollButton("submit", buttonWidth, buttonHeight);
+            backButton = new PollButton("back", buttonWidth, buttonHeight);
 
             layout = new GroupLayout(optionsPane);
             layout.setAutoCreateGaps(true);
             layout.setAutoCreateContainerGaps(true);
             GroupLayout.SequentialGroup group = layout.createSequentialGroup();
+            group.addComponent(backButton);
             for (PollButton button : trees) {
                 group.addComponent(button);
             }
@@ -185,6 +188,9 @@ class Visualizer {
                     showTree(pkts[fi]);
                 });
             }
+            backButton.addActionListener(event -> {
+                backClicked = true;
+            });
             submitButton.addActionListener(event -> {
                 ArrayList<String> selected = new ArrayList<>();
                 for (TreeVertex vertex : vertices) {
@@ -192,9 +198,16 @@ class Visualizer {
                         selected.add(vertex.getText());
                     }
                 }
-                String[] selectedArr = selected.toArray(new String[selected.size()]);
-                String checkResult = currentPKT.checkSelected(selectedArr, "general");
-                if (checkResult == null) {
+                this.selected = selected.toArray(new String[selected.size()]);
+                String checkResult = currentPKT.checkSelected(this.selected, "general");
+                System.out.println("this.selected.length: " + this.selected.length);
+                System.out.println("current task: " + currentTask);
+                Storage storage = new Storage();
+                if (checkResult == null || (this.selected.length == 0 && storage.haveThemes(currentTask))) {
+                    if (this.selected.length == 0 && storage.haveThemes(currentTask)) {
+                        List<String> tmp = storage.getThemes(currentTask);
+                        this.selected = tmp.toArray(new String[tmp.size()]);
+                    }
                     submitClicked = true;
                     for (TreeVertex vertex : vertices) {
                         vertex.isSelected = false;
@@ -264,23 +277,35 @@ class Visualizer {
         }
     }
 
-    void loadTask(File file, boolean onlyGeneralSelection) {
+    String[] loadTask(File file, boolean onlyGeneralSelection) {
         File descriptionFile = new File(file, "README.md");
         if (!descriptionFile.exists()) {
             System.err.println("There is not README.md for task " + file.toString());
-            return;
+            return null;
         }
         try (BufferedReader reader = new BufferedReader(new FileReader(descriptionFile))) {
             ArrayList<String> lines = new ArrayList<>();
             lines.addAll(reader.lines().collect(Collectors.toList()));
-            mainFrame.descriptionArea.setText(String.join("\n", lines));
+
+            mainFrame.currentTask = file.getName();
+
+            String markdownSource = String.join("\n", lines);
+            //String htmlSource = new Markdown4jProcessor().process(markdownSource);
+            mainFrame.descriptionArea.setText(markdownSource);
             //TODO: make the text be rendered markdown
-            while (!mainFrame.submitClicked) {
+
+            while (!mainFrame.submitClicked && !mainFrame.backClicked) {
                 Thread.sleep(200);
             }
+            if (mainFrame.backClicked) {
+                mainFrame.backClicked = false;
+                return new String[]{null};
+            }
             mainFrame.submitClicked = false;
+            return mainFrame.selected;
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
+        return null;
     }
 }
