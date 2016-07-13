@@ -1,7 +1,9 @@
 package com.codefights.poll;
 
-import org.markdown4j.Markdown4jProcessor;
-
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+import java.util.HashMap;
 import java.util.List;
 import javax.swing.*;
 import java.awt.*;
@@ -16,7 +18,7 @@ class Visualizer {
     private final static int WINDOW_WIDTH = (int) Toolkit.getDefaultToolkit().getScreenSize().getWidth();
     private final static int WINDOW_HEIGHT = (int) Toolkit.getDefaultToolkit().getScreenSize().getHeight();
     private final static int BUTTON_HEIGHT = 20;
-    private final static int DEFAULT_VERTEX_SIZE_X = 100;
+    private final static int DEFAULT_VERTEX_SIZE_X = 150;
     private final static int DEFAULT_VERTEX_SIZE_Y = 20;
 
     private class PollButton extends JButton {
@@ -28,30 +30,92 @@ class Visualizer {
         }
     }
 
-    private class TreeVertex extends JButton {
-        boolean isSelected;
-        int sizeX; //Sizes used for drag-n-drop
-        int sizeY;
+    private class TreeVertex extends JButton implements MouseMotionListener, MouseListener {
+        private boolean isSelected;
+        private MainFrame frame;
+        private boolean dragging;
+        private MouseEvent lastPress;
+        private int sizeX; //Sizes used for drag-n-drop
+        private int sizeY;
         private int x; //Cordinates that may be changed with drag-n-drop
         private int y;
-        private String name;
 
-        TreeVertex(String name, int x, int y) {
+        TreeVertex(MainFrame frame, String name, int x, int y) {
             super();
+            this.frame = frame;
+            this.dragging = false;
             this.isSelected = false;
             this.sizeX = DEFAULT_VERTEX_SIZE_X;
             this.sizeY = DEFAULT_VERTEX_SIZE_Y;
-            this.name = name;
-            setFont(new Font("Times New Roman", Font.PLAIN, 12));
-            //AffineTransform affineTransform = new AffineTransform();
-            //FontRenderContext frc = new FontRenderContext(affineTransform, true, true);
-            //int textWidth = (int) getFont().getStringBounds(name, frc).getWidth();
-            //int textHeight = (int) getFont().getStringBounds(name, frc).getHeight();
-            //setBounds(x - textWidth / 2, y, textWidth + 10, textHeight + 10);
-            this.x = x - 10;
+            this.x = x;
             this.y = y;
-            setBounds(x - 10, y, sizeX, sizeY);
             setText(name);
+            setBounds(x, y, sizeX, sizeY);
+            revalidate();
+            repaint();
+            this.addMouseListener(this);
+            this.addMouseMotionListener(this);
+        }
+
+        int getx() {
+            return x;
+        }
+
+        int gety() {
+            return y;
+        }
+
+        @Override
+        public void mouseClicked(MouseEvent e) {
+        }
+
+        @Override
+        public void mousePressed(MouseEvent e) {
+            lastPress = e;
+        }
+
+        @Override
+        public void mouseReleased(MouseEvent e) {
+            dragging = false;
+            lastPress = null;
+        }
+
+        @Override
+        public void mouseEntered(MouseEvent e) {
+        }
+
+        @Override
+        public void mouseExited(MouseEvent e) {
+        }
+
+        @Override
+        public void mouseDragged(MouseEvent e) {
+            dragging = true;
+            int dx = e.getX() - lastPress.getX();
+            int dy = e.getY() - lastPress.getY();
+            x += dx;
+            y += dy;
+            setBounds(x, y, sizeX, sizeY);
+            repaint();
+            frame.showTree(frame.currentPKT);
+        }
+
+        @Override
+        public void mouseMoved(MouseEvent e) {
+
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            /*FontMetrics metrics = g.getFontMetrics();
+            int width = metrics.stringWidth(name);
+            int height = BUTTON_HEIGHT;
+            System.out.println(name + " " + width + " " + height);
+            this.sizeX = width;
+            this.sizeY = height;
+            setBounds(this.x, this.y, this.sizeX, this.sizeY);
+            setText(name);*/
         }
     }
 
@@ -114,7 +178,8 @@ class Visualizer {
         private PKT[] pkts;
         private PKT currentPKT;
         private GroupLayout layout;
-        private ArrayList<TreeVertex> vertices;
+        private HashMap<PKT, ArrayList<TreeVertex>> vertices;
+        private HashMap<PKT, HashMap<TreeVertex, ArrayList<TreeVertex>>> treeEdges;
         private String[] selected;
 
         MainFrame() throws ConfigException {
@@ -179,6 +244,8 @@ class Visualizer {
             group.addComponent(submitButton);
             layout.setHorizontalGroup(group);
 
+            vertices = new HashMap<>();
+            treeEdges = new HashMap<>();
             currentPKT = pkts[0];
             showTree(currentPKT);
             for (int i = 0; i < trees.length; i++) {
@@ -188,20 +255,16 @@ class Visualizer {
                     showTree(pkts[fi]);
                 });
             }
-            backButton.addActionListener(event -> {
-                backClicked = true;
-            });
+            backButton.addActionListener(event -> backClicked = true);
             submitButton.addActionListener(event -> {
                 ArrayList<String> selected = new ArrayList<>();
-                for (TreeVertex vertex : vertices) {
+                for (TreeVertex vertex : vertices.get(currentPKT)) {
                     if (vertex.isSelected) {
                         selected.add(vertex.getText());
                     }
                 }
                 this.selected = selected.toArray(new String[selected.size()]);
                 String checkResult = currentPKT.checkSelected(this.selected, "general");
-                System.out.println("this.selected.length: " + this.selected.length);
-                System.out.println("current task: " + currentTask);
                 Storage storage = new Storage();
                 if (checkResult == null || (this.selected.length == 0 && storage.haveThemes(currentTask))) {
                     if (this.selected.length == 0 && storage.haveThemes(currentTask)) {
@@ -209,7 +272,7 @@ class Visualizer {
                         this.selected = tmp.toArray(new String[tmp.size()]);
                     }
                     submitClicked = true;
-                    for (TreeVertex vertex : vertices) {
+                    for (TreeVertex vertex : vertices.get(currentPKT)) {
                         vertex.isSelected = false;
                         vertex.setBackground(null);
                     }
@@ -225,15 +288,19 @@ class Visualizer {
             setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         }
 
+        private void drawEdge(TreeVertex from, TreeVertex to) {
+            drawEdge(from, to.getx() + to.sizeX / 2, to.gety());
+        }
+
         private void drawEdge(TreeVertex from, int toX, int toY) {
             int fromX = from.getX() + from.sizeX / 2;
-            int fromY = from.getY() + from.sizeY / 2;
+            int fromY = from.getY() + from.sizeY;
             treePane.addLine(new Line(fromX, fromY, toX, toY));
         }
 
-        private void drawTree(PKT tree, String vertex, int minWidth, int maxWidth, int depth) {
+        private void drawTree(PKT tree, String vertex, TreeVertex parent, int minWidth, int maxWidth, int depth) {
             ArrayList<String> children = tree.getChildren(vertex);
-            TreeVertex button = new TreeVertex(vertex, (minWidth + maxWidth) / 2, 2 * BUTTON_HEIGHT * (1 + depth));
+            TreeVertex button = new TreeVertex(this, vertex, (minWidth + maxWidth) / 2, 2 * BUTTON_HEIGHT * (1 + depth));
             button.addActionListener(event -> {
                 button.isSelected ^= true;
                 if (button.isSelected) {
@@ -242,17 +309,28 @@ class Visualizer {
                     button.setBackground(null);
                 }
             });
-            vertices.add(button);
-            treePane.add(button);
+            if (parent != null) {
+                treeEdges.get(currentPKT).get(parent).add(button);
+            }
+            treeEdges.get(currentPKT).put(button, new ArrayList<>());
+            vertices.get(currentPKT).add(button);
             if (children.size() == 0) {
                 return;
             }
             int diff = (maxWidth - minWidth) / children.size();
             for (int i = 0; i < children.size(); i++) {
-                int toX = minWidth + diff * (2 * i + 1) / 2;
-                int toY = 2 * BUTTON_HEIGHT * (2 + depth);
-                drawEdge(button, toX, toY);
-                drawTree(tree, children.get(i), minWidth + diff * i, minWidth + diff * (i + 1), depth + 1);
+                drawTree(tree, children.get(i), button, minWidth + diff * i, minWidth + diff * (i + 1), depth + 1);
+            }
+        }
+
+        private void drawKnownTree() {
+            for (TreeVertex vertex : vertices.get(currentPKT)) {
+                treePane.add(vertex);
+            }
+            for (TreeVertex from : treeEdges.get(currentPKT).keySet()) {
+                for (TreeVertex to : treeEdges.get(currentPKT).get(from)) {
+                    drawEdge(from, to);
+                }
             }
         }
 
@@ -262,8 +340,12 @@ class Visualizer {
             treePane.revalidate();
             treePane.repaint();
             treePane.setLayout(null);
-            vertices = new ArrayList<>();
-            drawTree(tree, tree.getRoot(), 0, treePane.getWidth(), 1);
+            if (vertices.get(currentPKT) == null) {
+                vertices.put(currentPKT, new ArrayList<>());
+                treeEdges.put(currentPKT, new HashMap<>());
+                drawTree(tree, tree.getRoot(), null, 0, treePane.getWidth() - 100, 1);
+            }
+            drawKnownTree();
         }
     }
 
