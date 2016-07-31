@@ -8,6 +8,7 @@ programming-languages -> strings
 programming-languages -> arrays
 programming-languages -> recursion
 programming-languages -> regular-expressions
+programming-languages -> bitwise-operations
 arrays -> linear-arrays
 arrays -> multidimensional-arrays
 Tree algorithms&data-structures
@@ -15,7 +16,7 @@ algorithms&data-structures -> sorting-algorithms
 algorithms&data-structures -> strings
 algorithms&data-structures -> graphs
 algorithms&data-structures -> data-structures
-algorithms&data-structures -> complete search
+algorithms&data-structures -> complete-search
 algorithms&data-structures -> dynamic-programming
 algorithms&data-structures -> miscellaneous
 graphs -> graph-traversal

@@ -189,7 +189,7 @@ class Visualizer {
             Dimension preferredSize = new Dimension(WINDOW_WIDTH / 2, WINDOW_HEIGHT);
 
             descriptionArea = new JTextArea(WINDOW_WIDTH / 2, WINDOW_HEIGHT);
-            descriptionArea.setFont(new Font("Times New Roman", Font.BOLD, 14));
+            descriptionArea.setFont(new Font("Times New Roman", Font.BOLD, 20));
             descriptionPane = new JScrollPane(descriptionArea);
             descriptionPane.setMinimumSize(minimalSize);
             descriptionArea.setLineWrap(true);
